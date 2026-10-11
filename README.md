@@ -9,7 +9,7 @@ Hệ thống được thiết kế theo mô hình phân tầng từ thiết bị
 - **Thiết bị nhúng (ESP32 trên Wokwi):** Giả lập cảm biến môi trường (nhiệt độ, độ ẩm, khoảng cách, RSSI) và publish bản tin dưới định dạng JSON lên MQTT Broker công cộng.
 - **MQTT Broker (`broker.emqx.io`):** Trung gian truyền tải thông điệp qua cơ chế Publish/Subscribe.
 - **Ingestion Service (`mqtt_to_influx.py`):** Script Python nhận dữ liệu từ MQTT, phân tích cấu trúc và ghi trực tiếp vào InfluxDB Cloud.
-- **Time-Series Database (InfluxDB Cloud):** Lưu trữ chuỗi thời gian (Bucket: `IOT_Lab`, Measurement: `environment_sensor`).
+- **Time-Series Database (InfluxDB Cloud):** Lưu trữ chuỗi thời gian
 - **Preprocessing (`preprocess_data.py`):** Trích xuất dữ liệu, làm sạch giá trị khuyết, lọc ngoại lệ bằng IQR, resample theo cửa sổ thời gian và tạo đặc trưng (`rolling mean`, `delta`).
 - **Dashboard:** Giám sát trực quan dữ liệu real-time trên nền tảng InfluxDB Cloud.
 
