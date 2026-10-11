@@ -3,10 +3,10 @@ import numpy as np
 import pandas as pd
 
 # --- CẤU HÌNH KẾT NỐI ---
-INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
-INFLUXDB_TOKEN = ""
-INFLUXDB_ORG = "IOT_Lab"
-INFLUXDB_BUCKET = "IOT_Lab"
+INFLUXDB_URL=https://us-east-1-1.aws.cloud2.influxdata.com
+INFLUXDB_TOKEN="Your-Token"
+INFLUXDB_ORG="Your-ORG"
+INFLUXDB_BUCKET="Your-Bucket"
 
 client = InfluxDBClient(
     url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG
