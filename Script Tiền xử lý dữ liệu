@@ -4,7 +4,7 @@ import pandas as pd
 
 # --- CẤU HÌNH KẾT NỐI ---
 INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
-INFLUXDB_TOKEN = "ums1o5IEMOkVkicnyL3F_QC1e2UOLkmaFiTRobLwAADreLZ6NbMEMvSPGT2_K-IkBqw5aCVAoBc6fodxM4QPcA=="
+INFLUXDB_TOKEN = ""
 INFLUXDB_ORG = "IOT_Lab"
 INFLUXDB_BUCKET = "IOT_Lab"
 
