@@ -1,0 +1,97 @@
+from influxdb_client import InfluxDBClient
+import numpy as np
+import pandas as pd
+
+# --- CẤU HÌNH KẾT NỐI ---
+INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
+INFLUXDB_TOKEN = "ums1o5IEMOkVkicnyL3F_QC1e2UOLkmaFiTRobLwAADreLZ6NbMEMvSPGT2_K-IkBqw5aCVAoBc6fodxM4QPcA=="
+INFLUXDB_ORG = "IOT_Lab"
+INFLUXDB_BUCKET = "IOT_Lab"
+
+client = InfluxDBClient(
+    url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG
+)
+query_api = client.query_api()
+
+# --- 1. ĐỌC DỮ LIỆU TỪ DATABASE ---
+query = """
+from(bucket: "IOT_Lab")
+  |> range(start: -2h)
+  |> filter(fn: (r) => r["_measurement"] == "environment_sensor")
+  |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+"""
+
+print("Đang tải dữ liệu từ InfluxDB...")
+data_frame = query_api.query_data_frame(query)
+
+if data_frame.empty:
+  print("Không tìm thấy dữ liệu trong khoảng thời gian này.")
+else:
+  # Chọn các cột cần thiết
+  cols_to_keep = [
+      "_time",
+      "device_id",
+      "temperature",
+      "humidity",
+      "distance_cm",
+      "rssi",
+  ]
+  existing_cols = [col for col in cols_to_keep if col in data_frame.columns]
+  df = data_frame[existing_cols].copy()
+
+  # Chuyển đổi cột thời gian sang kiểu datetime và đặt làm index
+  df["_time"] = pd.to_datetime(df["_time"])
+  df.set_index("_time", inplace=True)
+  df = df.sort_index()
+
+  print(f"\n--- 1. DỮ LIỆU THÔ BAN ĐẦU ({len(df)} dòng) ---")
+  print(df.head(3))
+
+  # --- 2. XỬ LÝ GIÁ TRỊ THIẾU (Missing Values) ---
+  # Sử dụng phương pháp điền tuyến tính hoặc forward fill
+  df = df.ffill().bfill().fillna(0)
+
+  # --- 3. PHÁT HIỆN VÀ XỬ LÝ OUTLIER (Phương pháp IQR cho nhiệt độ) ---
+  if "temperature" in df.columns:
+    Q1 = df["temperature"].quantile(0.25)
+    Q3 = df["temperature"].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+
+    # Lọc bỏ outlier hoặc thay thế (ở đây ta dùng phương pháp giới hạn biên)
+    outliers_count = df[
+        (df["temperature"] < lower_bound) | (df["temperature"] > upper_bound)
+    ].shape[0]
+    print(f"\n--- 2. PHÁT HIỆN OUTLIER ---")
+    print(f"Số lượng điểm bất thường (Outliers) nhiệt độ phát hiện: {outliers_count}")
+
+    # Cắt lọc các giá trị nằm ngoài khoảng IQR hợp lệ
+    df = df[
+        (df["temperature"] >= lower_bound)
+        & (df["temperature"] <= upper_bound)
+    ]
+
+  # --- 4. RESAMPLING THEO CỬA SỔ THỜI GIAN (Ví dụ: trung bình mỗi 1 phút) ---
+  # Resample theo phút và tính giá trị trung bình
+  numeric_cols = df.select_dtypes(include=[np.number]).columns
+  df_resampled = df[numeric_cols].resample("1min").mean().ffill().bfill()
+
+  # --- 5. TẠO ĐẶC TRƯNG ĐƠN GIẢN (Feature Engineering: Rolling Mean) ---
+  if "temperature" in df_resampled.columns:
+    # Tính trung bình trượt 3 cửa sổ gần nhất
+    df_resampled["temp_rolling_mean"] = (
+        df_resampled["temperature"].rolling(window=3, min_periods=1).mean()
+    )
+    # Tính độ chênh lệch (delta) so với thời điểm trước
+    df_resampled["temp_delta"] = df_resampled["temperature"].diff().fillna(0)
+
+  print("\n--- 3. DỮ LIỆU SAU KHI TIỀN XỬ LÝ & RESAMPLING ---")
+  print(df_resampled.head(10))
+
+  # Lưu kết quả ra file CSV phục vụ nộp báo cáo
+  output_file = "iot_sensor_processed_final.csv"
+  df_resampled.to_csv(output_file)
+  print(f"\nĐã lưu kết quả thành công vào file: {output_file}")
+
+client.close()
