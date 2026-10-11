@@ -1,0 +1,73 @@
+import json
+import logging
+from influxdb_client import InfluxDBClient, Point
+from influxdb_client.client.write_api import SYNCHRONOUS
+import paho.mqtt.client as mqtt
+
+# --- CẤU HÌNH INFLUXDB CLOUD ---
+INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
+INFLUXDB_TOKEN = "ums1o5IEMOkVkicnyL3F_QC1e2UOLkmaFiTRobLwAADreLZ6NbMEMvSPGT2_K-IkBqw5aCVAoBc6fodxM4QPcA=="
+INFLUXDB_ORG = "IOT_Lab"
+INFLUXDB_BUCKET = "IOT_Lab"
+
+# --- CẤU HÌNH MQTT BROKER CÔNG CỘNG ---
+MQTT_BROKER = "broker.emqx.io"
+MQTT_PORT = 1883
+MQTT_TOPIC = "iot_lab/esp32/telemetry"
+MQTT_CLIENT_ID = "python_influx_subscriber"
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
+client_influx = InfluxDBClient(
+    url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG
+)
+write_api = client_influx.write_api(write_options=SYNCHRONOUS)
+
+
+def on_connect(client, userdata, flags, rc):
+  if rc == 0:
+    logging.info("Đã kết nối thành công tới MQTT Broker công cộng!")
+    client.subscribe(MQTT_TOPIC)
+  else:
+    logging.error(f"Kết nối MQTT thất bại, mã lỗi: {rc}")
+
+
+def on_message(client, userdata, msg):
+  try:
+    payload_str = msg.payload.decode("utf-8")
+    data = json.loads(payload_str)
+    logging.info(f"Nhận dữ liệu: {data}")
+
+    point = (
+        Point("environment_sensor")
+        .tag("device_id", data.get("device_id", "esp32_01"))
+        .field("temperature", float(data.get("temperature", 0.0)))
+        .field("humidity", float(data.get("humidity", 0.0)))
+        .field("distance_cm", float(data.get("distance_cm", 0.0)))
+        .field("rssi", int(data.get("rssi", 0)))
+        .field("sequence", int(data.get("sequence", 0)))
+        .field("uptime_s", int(data.get("uptime_s", 0)))
+    )
+
+    write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=point)
+    logging.info("Đã đẩy dữ liệu lên InfluxDB Cloud thành công!")
+
+  except Exception as e:
+    logging.error(f"Lỗi ghi InfluxDB: {e}")
+
+
+client_mqtt = mqtt.Client(
+    client_id=MQTT_CLIENT_ID, callback_api_version=mqtt.CallbackAPIVersion.VERSION1
+)
+client_mqtt.on_connect = on_connect
+client_mqtt.on_message = on_message
+
+if __name__ == "__main__":
+  try:
+    client_mqtt.connect(MQTT_BROKER, MQTT_PORT, 60)
+    client_mqtt.loop_forever()
+  except KeyboardInterrupt:
+    client_mqtt.disconnect()
+    client_influx.close()
