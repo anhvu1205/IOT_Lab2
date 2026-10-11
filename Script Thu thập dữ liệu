@@ -5,10 +5,10 @@ from influxdb_client.client.write_api import SYNCHRONOUS
 import paho.mqtt.client as mqtt
 
 # --- CẤU HÌNH INFLUXDB CLOUD ---
-INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
-INFLUXDB_TOKEN = ""
-INFLUXDB_ORG = "IOT_Lab"
-INFLUXDB_BUCKET = "IOT_Lab"
+INFLUXDB_URL=https://us-east-1-1.aws.cloud2.influxdata.com
+INFLUXDB_TOKEN="Your-Token"
+INFLUXDB_ORG="Your-ORG"
+INFLUXDB_BUCKET="Your-Bucket"
 
 # --- CẤU HÌNH MQTT BROKER CÔNG CỘNG ---
 MQTT_BROKER = "broker.emqx.io"
